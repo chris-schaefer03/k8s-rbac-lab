@@ -101,4 +101,3 @@ RBAC beantwortet nur: *Darf diese Identität diese Aktion auf diesem Ressourcent
 - **Keine Kontrolle über die Daten danach:** Was der Agent mit gelesenen Informationen macht, liegt außerhalb von RBAC.
 - **Grobe Granularität:** Rechte gelten für alle Pods eines Namespace, nicht für einzelne Pods.
 
-Mögliche Ansätze dafür sind kurzlebige Tokens pro Aufgabe, Audit-Logging und Policy Engines wie Kyverno.
