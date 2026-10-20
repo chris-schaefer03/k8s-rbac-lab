@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Prüft die RBAC-Rechte des ServiceAccounts team-a/pod-reader.
 # Exit-Code 0 = alle Tests bestanden, 1 = mindestens einer fehlgeschlagen.
 
