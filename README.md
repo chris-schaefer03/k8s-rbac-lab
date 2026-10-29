@@ -22,6 +22,7 @@ Autonome Programme wie KI-Agenten greifen mit eigener Identität auf Infrastrukt
 | `agent/` | Code und Dockerfile des Agenten |
 | `scripts/test-rbac.sh` | Prüft 12 Fälle mit `kubectl auth can-i` |
 | `Makefile` | Aufbau, Tests, Agent, Abbau |
+| `.github/workflows/rbac-tests.yml` | CI: führt `make up`, `make test` und `make agent` bei jedem Push aus |
 
 ## Ausführen
 
@@ -33,6 +34,8 @@ make test    # RBAC-Regeln prüfen (Exit-Code 0 = alles korrekt)
 make agent   # Agent starten und Ausgabe anzeigen
 make down    # Cluster löschen
 ```
+
+Dieselben Schritte laufen bei jedem Push automatisch in GitHub Actions.
 
 ## Ergebnisse
 
