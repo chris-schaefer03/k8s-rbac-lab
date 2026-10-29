@@ -1,5 +1,7 @@
 # Kubernetes RBAC Lab: Least Privilege für Workload-Identitäten
 
+![RBAC tests](https://github.com/chris-schaefer03/k8s-rbac-lab/actions/workflows/rbac-tests.yml/badge.svg)
+
 Ein lokales Kubernetes-Projekt, das zeigt, wie man einem Programm im Cluster nur genau die Rechte gibt, die es braucht. Ein ServiceAccount `pod-reader` darf Pods im Namespace `team-a` lesen – und sonst nichts. Ein Testskript und ein Python-Agent prüfen, dass diese Grenzen halten.
 
 ## Motivation
