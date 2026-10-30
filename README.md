@@ -2,7 +2,7 @@
 
 [![RBAC tests](https://github.com/chris-schaefer03/k8s-rbac-lab/actions/workflows/rbac-tests.yml/badge.svg)](https://github.com/chris-schaefer03/k8s-rbac-lab/actions/workflows/rbac-tests.yml)
 
-A local Kubernetes lab that shows how to give a program in a cluster exactly the permissions it needs. The ServiceAccount `pod-reader` may read pods in the namespace `team-a` – and nothing else. A test script and a Python agent verify that these boundaries hold.
+A local Kubernetes lab that shows how to give a program in a cluster exactly the permissions it needs. The ServiceAccount `pod-reader` may read pods in the namespace `team-a` – and nothing else. A test script and a Python agent verify that these boundaries hold, and the API server's audit log records every attempt.
 
 ## Motivation
 
@@ -12,7 +12,7 @@ Autonomous programs such as AI agents access infrastructure with their own ident
 
 | File | Purpose |
 | --- | --- |
-| `kind-config.yaml` | Local cluster with one node |
+| `kind-config.yaml` | Local cluster with one node and audit logging enabled |
 | `manifests/00-namespace.yaml` | Namespace `team-a` |
 | `manifests/01-nginx-deployment.yaml` | Sample workload (nginx) |
 | `manifests/02-serviceaccount.yaml` | Identity `pod-reader` |
@@ -20,15 +20,15 @@ Autonomous programs such as AI agents access infrastructure with their own ident
 | `manifests/04-rolebinding.yaml` | Binds the role to the ServiceAccount |
 | `manifests/05-agent-pod.yaml` | Python agent running as `pod-reader` |
 | `agent/` | Agent code and Dockerfile |
-| `scripts/test-rbac.sh` | Checks 12 cases with `kubectl auth can-i` |
 | `audit/audit-policy.yaml` | Audit policy: logs every request of `pod-reader` (metadata only) |
-| `scripts/show-audit.sh` | Shows the audit log entries of `pod-reader` |
-| `Makefile` | Setup, tests, agent, teardown |
-| `.github/workflows/rbac-tests.yml` | CI: runs `make up`, `make test` and `make agent` on every push |
+| `scripts/test-rbac.sh` | Checks 12 cases with `kubectl auth can-i` |
+| `scripts/show-audit.sh` | Shows the audit log entries of `pod-reader` and fails if no denied requests were logged |
+| `Makefile` | Setup, tests, agent, audit log, teardown |
+| `.github/workflows/rbac-tests.yml` | CI: runs `make up`, `make test`, `make agent` and `make audit` on every push |
 
 ## Usage
 
-Requirements: Docker, [kind](https://kind.sigs.k8s.io/), kubectl, make.
+Requirements: Docker, [kind](https://kind.sigs.k8s.io/), kubectl, make, jq.
 
 ```bash
 make up      # create cluster, build and load agent image, apply manifests
@@ -108,6 +108,7 @@ Result: 12 passed, 0 failed
 - **Subresources excluded:** `pods/log` and `pods/exec` are separate resources. `exec` effectively means code execution inside the container.
 - **No rights on RoleBindings:** otherwise the identity could grant itself more permissions.
 - **Dry run for deletion:** the agent uses `dry_run` so that nothing is deleted even if the RBAC setup were wrong.
+- **Audit at metadata level:** the log records who did what and with which result, but never the contents of a request – so no secret can end up in the log.
 
 ## Threat model
 
@@ -125,7 +126,7 @@ Result: 12 passed, 0 failed
 | Escalate own permissions | Create a RoleBinding | No rights on RBAC objects | ✅ blocked |
 | Read sensitive data from pods | Pod specs include environment variables | Reading pods is allowed | ⚠️ open |
 | Use a stolen token | Copy the token out of the pod and use it elsewhere | Token expires after about one hour | ⚠️ partial |
-| Stay unnoticed | Attempts are not logged | Audit policy logs every request of `pod-reader` | ✅ logged |
+| Stay unnoticed | Probe for permissions without leaving a trace | Audit policy logs every request of `pod-reader` | ✅ logged |
 
 ## Lesson learned: security tests can be wrong too
 
