@@ -8,19 +8,19 @@ jobs:
   rbac-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Repository auschecken
+      - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: kind und kubectl installieren
+      - name: Install kind and kubectl
         uses: helm/kind-action@v1
         with:
           install_only: true
 
-      - name: Cluster aufbauen
+      - name: Create cluster
         run: make up
 
-      - name: RBAC-Tests ausführen
+      - name: Run RBAC tests
         run: make test
 
-      - name: Agent ausführen
+      - name: Run agent
         run: make agent
