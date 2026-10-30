@@ -1,4 +1,4 @@
-.PHONY: up test agent down
+.PHONY: up test agent audit down
 
 up:
 	kind create cluster --config kind-config.yaml
@@ -16,6 +16,9 @@ agent:
 	kubectl apply -f manifests/05-agent-pod.yaml
 	kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/agent -n team-a --timeout=120s
 	kubectl logs agent -n team-a
+
+audit:
+	./scripts/show-audit.sh
 
 down:
 	kind delete cluster --name rbac-lab
