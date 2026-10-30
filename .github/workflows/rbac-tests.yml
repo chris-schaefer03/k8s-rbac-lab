@@ -24,3 +24,6 @@ jobs:
 
       - name: Run agent
         run: make agent
+
+      - name: Show audit log
+        run: make audit
