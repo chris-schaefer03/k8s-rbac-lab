@@ -21,6 +21,8 @@ Autonomous programs such as AI agents access infrastructure with their own ident
 | `manifests/05-agent-pod.yaml` | Python agent running as `pod-reader` |
 | `agent/` | Agent code and Dockerfile |
 | `scripts/test-rbac.sh` | Checks 12 cases with `kubectl auth can-i` |
+| `audit/audit-policy.yaml` | Audit policy: logs every request of `pod-reader` (metadata only) |
+| `scripts/show-audit.sh` | Shows the audit log entries of `pod-reader` |
 | `Makefile` | Setup, tests, agent, teardown |
 | `.github/workflows/rbac-tests.yml` | CI: runs `make up`, `make test` and `make agent` on every push |
 
@@ -32,6 +34,7 @@ Requirements: Docker, [kind](https://kind.sigs.k8s.io/), kubectl, make.
 make up      # create cluster, build and load agent image, apply manifests
 make test    # check RBAC rules (exit code 0 = all correct)
 make agent   # run the agent and show its output
+make audit   # show the agent's requests from the API server audit log
 make down    # delete the cluster
 ```
 
@@ -53,6 +56,19 @@ DENIED   Delete pod agent (dry run) (403 Forbidden)
 DENIED   List secrets in team-a (403 Forbidden)
 DENIED   List pods in default (403 Forbidden)
 ```
+
+### Audit log
+
+The API server logs every request of `pod-reader`, including the denied ones (output of one agent run):
+
+```
+ALLOWED  200  list pods in team-a
+DENIED   403  delete pods in team-a
+DENIED   403  list secrets in team-a
+DENIED   403  list pods in default
+```
+
+The `kubectl auth can-i` checks do not appear here: they only ask whether an action *would* be allowed, while the audit log records real attempts.
 
 ### Test script
 
@@ -109,7 +125,7 @@ Result: 12 passed, 0 failed
 | Escalate own permissions | Create a RoleBinding | No rights on RBAC objects | ✅ blocked |
 | Read sensitive data from pods | Pod specs include environment variables | Reading pods is allowed | ⚠️ open |
 | Use a stolen token | Copy the token out of the pod and use it elsewhere | Token expires after about one hour | ⚠️ partial |
-| Stay unnoticed | Attempts are not logged | – | ⚠️ open (audit logging planned) |
+| Stay unnoticed | Attempts are not logged | Audit policy logs every request of `pod-reader` | ✅ logged |
 
 ## Lesson learned: security tests can be wrong too
 
