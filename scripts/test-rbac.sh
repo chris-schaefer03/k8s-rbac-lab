@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Prüft die RBAC-Rechte des ServiceAccounts team-a/pod-reader.
-# Exit-Code 0 = alle Tests bestanden, 1 = mindestens einer fehlgeschlagen.
+# Checks the RBAC permissions of the ServiceAccount team-a/pod-reader.
+# Exit code 0 = all tests passed, 1 = at least one test failed.
 
 SA="system:serviceaccount:team-a:pod-reader"
 PASS=0
@@ -13,32 +13,32 @@ check() {
   actual=$(kubectl auth can-i "$@" --as="$SA" 2>/dev/null)
 
   if [[ "$actual" == "$expected" ]]; then
-    echo "  PASS  $description (erwartet: $expected, ist: $actual)"
+    echo "  PASS  $description (expected: $expected, actual: $actual)"
     PASS=$((PASS + 1))
   else
-    echo "  FAIL  $description (erwartet: $expected, ist: $actual)"
+    echo "  FAIL  $description (expected: $expected, actual: $actual)"
     FAIL=$((FAIL + 1))
   fi
 }
 
-echo "RBAC-Tests für $SA"
+echo "RBAC tests for $SA"
 echo
-echo "Erlaubt:"
-check yes "Pods lesen in team-a"            get    pods        -n team-a
-check yes "Pods auflisten in team-a"        list   pods        -n team-a
-check yes "Pods beobachten in team-a"       watch  pods        -n team-a
+echo "Allowed:"
+check yes "Get pods in team-a"              get    pods        -n team-a
+check yes "List pods in team-a"             list   pods        -n team-a
+check yes "Watch pods in team-a"            watch  pods        -n team-a
 echo
-echo "Verboten:"
-check no  "Pods löschen in team-a"          delete pods        -n team-a
-check no  "Pods erstellen in team-a"        create pods        -n team-a
-check no  "Pods lesen in default"           get    pods        -n default
-check no  "Pods lesen in kube-system"       get    pods        -n kube-system
-check no  "Secrets lesen in team-a"         get    secrets     -n team-a
-check no  "Deployments ändern in team-a"    patch  deployments -n team-a
-check no  "Pod-Logs lesen in team-a"        get    pods --subresource=log  -n team-a
-check no  "In Pods exec'en in team-a"       create pods --subresource=exec -n team-a
-check no  "RoleBindings anlegen in team-a"  create rolebindings -n team-a
+echo "Denied:"
+check no  "Delete pods in team-a"           delete pods        -n team-a
+check no  "Create pods in team-a"           create pods        -n team-a
+check no  "Get pods in default"             get    pods        -n default
+check no  "Get pods in kube-system"         get    pods        -n kube-system
+check no  "Get secrets in team-a"           get    secrets     -n team-a
+check no  "Patch deployments in team-a"     patch  deployments -n team-a
+check no  "Read pod logs in team-a"         get    pods --subresource=log  -n team-a
+check no  "Exec into pods in team-a"        create pods --subresource=exec -n team-a
+check no  "Create rolebindings in team-a"   create rolebindings -n team-a
 
 echo
-echo "Ergebnis: $PASS bestanden, $FAIL fehlgeschlagen"
+echo "Result: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
