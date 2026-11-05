@@ -1,4 +1,11 @@
-.PHONY: up test agent audit down
+.PHONY: setup up test agent audit down
+
+VENV := .venv
+PYTHON := $(VENV)/bin/python
+
+setup:
+	python3 -m venv $(VENV)
+	$(VENV)/bin/pip install --quiet -r scripts/requirements.txt
 
 up:
 	kind create cluster --config kind-config.yaml
@@ -9,7 +16,7 @@ up:
 	kubectl rollout status deployment/nginx -n team-a --timeout=120s
 
 test:
-	./scripts/test-rbac.sh
+	$(PYTHON) scripts/test_rbac.py
 
 agent:
 	kubectl delete pod agent -n team-a --ignore-not-found
