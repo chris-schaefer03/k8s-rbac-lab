@@ -21,16 +21,18 @@ Autonomous programs such as AI agents access infrastructure with their own ident
 | `manifests/05-agent-pod.yaml` | Python agent running as `pod-reader` |
 | `agent/` | Agent code and Dockerfile |
 | `audit/audit-policy.yaml` | Audit policy: logs every request of `pod-reader` (metadata only) |
-| `scripts/test-rbac.sh` | Checks 12 cases with `kubectl auth can-i` |
+| `scripts/test_rbac.py` | Checks 12 cases with SubjectAccessReviews |
+| `scripts/requirements.txt` | Python dependency of the test script |
 | `scripts/show-audit.sh` | Shows the audit log entries of `pod-reader` and fails if no denied requests were logged |
-| `Makefile` | Setup, tests, agent, audit log, teardown |
-| `.github/workflows/rbac-tests.yml` | CI: runs `make up`, `make test`, `make agent` and `make audit` on every push |
+| `Makefile` | Python setup, cluster setup, tests, agent, audit log, teardown |
+| `.github/workflows/rbac-tests.yml` | CI: runs `make setup`, `make up`, `make test`, `make agent` and `make audit` on every push |
 
 ## Usage
 
-Requirements: Docker, [kind](https://kind.sigs.k8s.io/), kubectl, make, jq.
+Requirements: Docker, [kind](https://kind.sigs.k8s.io/), kubectl, make, jq, Python 3 with venv.
 
 ```bash
+make setup   # create a Python virtual environment for the test script (once)
 make up      # create cluster, build and load agent image, apply manifests
 make test    # check RBAC rules (exit code 0 = all correct)
 make agent   # run the agent and show its output
@@ -68,11 +70,13 @@ DENIED   403  list secrets in team-a
 DENIED   403  list pods in default
 ```
 
-The `kubectl auth can-i` checks do not appear here: they only ask whether an action *would* be allowed, while the audit log records real attempts.
+The test script's checks do not appear here: they only ask whether an action *would* be allowed, while the audit log records real attempts.
 
 ### Test script
 
-All 12 cases pass: 3 allowed, 9 denied. `kubectl auth can-i` uses impersonation to ask whether an action *would* be allowed; the agent additionally makes four real API calls with its own token.
+All 12 cases pass: 3 allowed, 9 denied. For each case, the script sends a **SubjectAccessReview** to the API server, asking whether `pod-reader` *would* be allowed to perform the action. (`kubectl auth can-i --as` asks the same question through a SelfSubjectAccessReview with impersonation.) The agent additionally makes four real API calls with its own token.
+
+To check that the tests can actually fail, the role was temporarily given the `delete` verb: the script reported `FAIL Delete pods in team-a` and exited with code 1.
 
 <details>
 <summary>Show full output</summary>
@@ -131,6 +135,8 @@ Result: 12 passed, 0 failed
 ## Lesson learned: security tests can be wrong too
 
 `kubectl auth can-i get pods/log` initially returned "yes", because kubectl interprets `pods/log` as *a pod named "log"*. The exec test passed, but for the wrong reason. Subresources have to be checked with `--subresource=log`.
+
+The test script was later rewritten in Python with explicit SubjectAccessReviews. Subresource and API group are now separate fields (`subresource="log"`, `group="apps"`), so nothing is parsed from a string. The API group matters too: without `group="apps"`, the deployments check would ask about a resource that does not exist and pass for the wrong reason.
 
 ## Limits of RBAC
 
