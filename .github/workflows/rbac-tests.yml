@@ -16,6 +16,9 @@ jobs:
         with:
           install_only: true
 
+      - name: Set up Python environment
+        run: make setup
+
       - name: Create cluster
         run: make up
 
