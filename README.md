@@ -8,6 +8,30 @@ A local Kubernetes lab that shows how to give a program in a cluster exactly the
 
 Autonomous programs such as AI agents access infrastructure with their own identity. If such an agent is compromised or manipulated (e.g. through prompt injection), its permissions define how much damage it can do. In Kubernetes, this identity is a **ServiceAccount**, and **RBAC** defines what it may do.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph host["Laptop or GitHub Actions runner"]
+    test["test_rbac.py<br/>SubjectAccessReviews, sent as admin"]
+    show["show-audit.sh"]
+    subgraph kind["kind cluster (one Docker container)"]
+      api["API server<br/>authentication + RBAC"]
+      rbac["Role pod-reader: get, list, watch on pods<br/>RoleBinding to ServiceAccount pod-reader"]
+      log[("Audit log<br/>requests of pod-reader only")]
+      subgraph ns["Namespace team-a"]
+        agent["Pod agent<br/>runs as pod-reader"]
+        nginx["Deployment nginx"]
+      end
+    end
+  end
+  agent -- "API calls with its own token" --> api
+  test -- "Would pod-reader be allowed?" --> api
+  api -- "checks" --> rbac
+  api -- "logs" --> log
+  show -- "reads" --> log
+```
+
 ## Structure
 
 | File | Purpose |
@@ -42,6 +66,8 @@ make down    # delete the cluster
 
 The same steps run automatically in GitHub Actions on every push.
 
+**Cost:** 0 € – everything runs locally in kind, and GitHub Actions is free for public repositories.
+
 ## Results
 
 ### Agent
@@ -70,7 +96,7 @@ DENIED   403  list secrets in team-a
 DENIED   403  list pods in default
 ```
 
-The test script's checks do not appear here: they only ask whether an action *would* be allowed, while the audit log records real attempts.
+The test script's checks do not appear here: they are sent by the admin and only ask whether `pod-reader` *would* be allowed, while the audit log records `pod-reader`'s real attempts.
 
 ### Test script
 
@@ -129,7 +155,7 @@ Result: 12 passed, 0 failed
 | Move laterally | Access other namespaces | Role instead of ClusterRole | ✅ blocked (403) |
 | Escalate own permissions | Create a RoleBinding | No rights on RBAC objects | ✅ blocked |
 | Read sensitive data from pods | Pod specs include environment variables | Reading pods is allowed | ⚠️ open |
-| Use a stolen token | Copy the token out of the pod and use it elsewhere | Token expires after about one hour | ⚠️ partial |
+| Use a stolen token | Copy the token out of the pod and use it elsewhere | Token is bound to the pod, but the API server extends its lifetime to about one year – it stays valid as long as the pod exists | ⚠️ open |
 | Stay unnoticed | Probe for permissions without leaving a trace | Audit policy logs every request of `pod-reader` | ✅ logged |
 
 ## Lesson learned: security tests can be wrong too
@@ -137,6 +163,12 @@ Result: 12 passed, 0 failed
 `kubectl auth can-i get pods/log` initially returned "yes", because kubectl interprets `pods/log` as *a pod named "log"*. The exec test passed, but for the wrong reason. Subresources have to be checked with `--subresource=log`.
 
 The test script was later rewritten in Python with explicit SubjectAccessReviews. Subresource and API group are now separate fields (`subresource="log"`, `group="apps"`), so nothing is parsed from a string. The API group matters too: without `group="apps"`, the deployments check would ask about a resource that does not exist and pass for the wrong reason.
+
+## What I'd do differently
+
+- **Measure defaults instead of assuming them.** I assumed the mounted token expires after about an hour. Decoding it (`exp − iat`) showed 365 days: the kubelet requests a one-hour token, but the API server extends it for compatibility.
+- **Check that every test can fail from the start.** I only made a test fail on purpose (adding `delete` to the role) after the `pods/log` bug – it should be the first check for any new test.
+- **Give the agent a short-lived, dedicated token** instead of the automatically mounted one.
 
 ## Limits of RBAC
 
